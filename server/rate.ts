@@ -70,5 +70,12 @@ export const rateHandler = handle(async (req) => {
 });
 
 export const healthHandler = handle(async () =>
-  json({ ok: true, mock: isMock(), exchange_rate: isMock() || Boolean(env("KOREAEXIM_API_KEY")) }),
+  // 값은 절대 내보내지 않고 설정 여부만 알려준다 (연결 테스트 진단용)
+  json({
+    ok: true,
+    mock: isMock(),
+    app_token: Boolean(env("APP_TOKEN")),
+    anthropic_key: Boolean(env("ANTHROPIC_API_KEY")),
+    exchange_rate: isMock() || Boolean(env("KOREAEXIM_API_KEY")),
+  }),
 );

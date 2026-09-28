@@ -155,11 +155,24 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     const cur = collect();
     try {
       const res = await fetch("/api/health");
-      const data = (await res.json()) as { ok?: boolean; mock?: boolean; exchange_rate?: boolean };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        mock?: boolean;
+        app_token?: boolean;
+        anthropic_key?: boolean;
+        exchange_rate?: boolean;
+      };
       if (!data.ok) return toast("응답이 이상해요");
-      // 토큰까지 맞는지 확인하려고 환율 API를 한 번 호출 (키가 없으면 501 → 토큰은 통과)
+      const redeploy = "Vercel 환경변수 등록 후 Redeploy 해주세요";
+      if (data.app_token === false) return toast(`서버에 APP_TOKEN이 없어요. ${redeploy}`, 5000);
+      if (data.anthropic_key === false && !data.mock) return toast(`서버에 ANTHROPIC_API_KEY가 없어요. ${redeploy}`, 5000);
+      // 토큰까지 맞는지 확인하려고 환율 API를 한 번 호출 (수출입은행 키가 없으면 501 → 토큰은 통과)
       const check = await fetch(`/api/rate?currency=USD`, { headers: { "X-App-Token": cur.token } });
-      if (check.status === 401) return toast("서버는 연결됐지만 접근 토큰이 틀려요");
+      if (check.status === 401) return toast("서버는 연결됐지만 접근 토큰이 틀려요", 4000);
+      if (!check.ok && check.status !== 501) {
+        const err = (await check.json().catch(() => null)) as { error?: string } | null;
+        return toast(`토큰은 맞지만 환율 조회 오류: ${err?.error ?? check.status}`, 5000);
+      }
       toast(`연결 성공${data.mock ? " (MOCK 모드)" : ""}${data.exchange_rate ? "" : " · 환율 자동 조회 꺼짐"} ✅`);
     } catch {
       toast("서버에 연결할 수 없어요");
