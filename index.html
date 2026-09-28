@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Travel Lens</title>
+    <meta name="description" content="여행 중 메뉴판·와인·사케 라벨을 찍으면 한국어로 해석해 주는 앱" />
+    <meta name="theme-color" content="#f7f3ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16130f" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Travel Lens" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  </head>
+  <body>
+    <main id="view" class="view"></main>
+    <nav id="tabbar" class="tabbar">
+      <a href="#/" data-route="home"><span>📷</span>촬영</a>
+      <a href="#/history" data-route="history"><span>🗂</span>기록</a>
+      <a href="#/settings" data-route="settings"><span>⚙️</span>설정</a>
+    </nav>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

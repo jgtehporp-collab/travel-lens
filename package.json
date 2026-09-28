@@ -1,0 +1,26 @@
+{
+  "name": "travel-lens",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:worker": "wrangler dev --config worker/wrangler.toml",
+    "dev:mock": "wrangler dev --config worker/wrangler.toml --var MOCK:true",
+    "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p worker/tsconfig.json && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p worker/tsconfig.json",
+    "deploy:worker": "wrangler deploy --config worker/wrangler.toml",
+    "deploy:pages": "npm run build && wrangler pages deploy dist --project-name travel-lens",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260928.1",
+    "typescript": "~5.9",
+    "vite": "^8.3.1",
+    "wrangler": "^4.142.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0"
+  }
+}
