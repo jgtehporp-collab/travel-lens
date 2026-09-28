@@ -1,4 +1,4 @@
-import type { MenuResult, Mode, SakeResult, WineResult } from "../../shared/types";
+import type { MenuResult, Mode, SakeResult, WineResult } from "../shared/types.js";
 
 // MOCK=true 일 때 돌려주는 샘플 결과 (API 비용 없이 UI 확인용)
 const menu: MenuResult = {

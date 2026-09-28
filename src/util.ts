@@ -43,3 +43,9 @@ export function listFromText(text: string): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
+
+/** "20260925" → "9월 25일" */
+export function formatYmd(ymd: string | null): string {
+  if (!ymd || ymd.length !== 8) return "";
+  return `${Number(ymd.slice(4, 6))}월 ${Number(ymd.slice(6, 8))}일`;
+}

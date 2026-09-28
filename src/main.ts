@@ -1,4 +1,5 @@
 import "./styles.css";
+import { refreshRateIfStale } from "./api";
 import { SCAN_UPDATED } from "./scan";
 import { renderHistory } from "./views/history";
 import { renderHome } from "./views/home";
@@ -31,9 +32,11 @@ window.addEventListener("hashchange", () => void route());
 window.addEventListener(SCAN_UPDATED, (e) => {
   const r = currentRoute();
   if (r.name === "scan" && r.id === (e as CustomEvent<string>).detail) void route();
+void refreshRateIfStale();
 });
 
 void route();
+void refreshRateIfStale();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => void navigator.serviceWorker.register("/sw.js"));

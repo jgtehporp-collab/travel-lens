@@ -3,8 +3,10 @@ import type { RequestMode, UserPrefs } from "../shared/types";
 
 export interface AppSettings extends UserPrefs {
   token: string;
-  /** Worker 주소. 비우면 빌드 시 VITE_API_BASE, 그것도 없으면 같은 도메인 */
-  api_base: string;
+  /** 환율 기준일 (YYYYMMDD) · 출처 · 마지막 자동 조회 시각 */
+  krw_rate_date: string | null;
+  krw_rate_source: string | null;
+  krw_rate_checked_at: number;
   model: string;
   last_mode: RequestMode;
 }
@@ -29,22 +31,25 @@ export const DEFAULT_SETTINGS: AppSettings = {
   currency: "JPY",
   krw_rate: 9.3,
   token: "",
-  api_base: "",
+  krw_rate_date: null,
+  krw_rate_source: null,
+  krw_rate_checked_at: 0,
   model: DEFAULT_MODEL,
   last_mode: "menu",
 };
 
-// 원화 환산 기본값 (대략치 — 설정에서 수정하거나 '환율 불러오기'로 갱신)
-export const CURRENCIES: { code: string; label: string; rate: number }[] = [
+// 원화 환산 기본값 (대략치). 서버에 수출입은행 키가 있으면 앱 실행 시 자동 갱신된다.
+// eximSupported=false 인 통화는 수출입은행이 제공하지 않아 직접 입력해야 한다.
+export const CURRENCIES: { code: string; label: string; rate: number; eximSupported?: false }[] = [
   { code: "JPY", label: "🇯🇵 엔 (JPY)", rate: 9.3 },
   { code: "USD", label: "🇺🇸 달러 (USD)", rate: 1390 },
   { code: "EUR", label: "🇪🇺 유로 (EUR)", rate: 1600 },
   { code: "GBP", label: "🇬🇧 파운드 (GBP)", rate: 1850 },
   { code: "CNY", label: "🇨🇳 위안 (CNY)", rate: 195 },
-  { code: "TWD", label: "🇹🇼 대만달러 (TWD)", rate: 45 },
+  { code: "TWD", label: "🇹🇼 대만달러 (TWD)", rate: 45, eximSupported: false },
   { code: "HKD", label: "🇭🇰 홍콩달러 (HKD)", rate: 178 },
   { code: "THB", label: "🇹🇭 바트 (THB)", rate: 42 },
-  { code: "VND", label: "🇻🇳 동 (VND)", rate: 0.053 },
+  { code: "VND", label: "🇻🇳 동 (VND)", rate: 0.053, eximSupported: false },
   { code: "SGD", label: "🇸🇬 싱가포르달러 (SGD)", rate: 1070 },
   { code: "AUD", label: "🇦🇺 호주달러 (AUD)", rate: 910 },
   { code: "CHF", label: "🇨🇭 스위스프랑 (CHF)", rate: 1720 },
@@ -88,7 +93,3 @@ export function toUserPrefs(s: AppSettings): UserPrefs {
   };
 }
 
-export function apiBase(s: AppSettings): string {
-  const base = s.api_base.trim() || (import.meta.env.VITE_API_BASE as string | undefined) || "";
-  return base.replace(/\/+$/, "");
-}

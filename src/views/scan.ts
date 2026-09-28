@@ -1,7 +1,7 @@
 import type { MenuResult } from "../../shared/types";
 import { type Scan, deleteScan, getScan, updateScan } from "../db";
 import { MODE_META, renderResult, skeleton } from "../render";
-import { isInflight, runScan } from "../scan";
+import { canRetry, isInflight, runScan } from "../scan";
 import { esc, formatDate, toast } from "../util";
 import { openStaffView } from "./staff";
 
@@ -33,8 +33,8 @@ export async function renderScan(root: HTMLElement, id: string): Promise<void> {
       <button class="icon-btn" id="delete" aria-label="삭제">🗑</button>
     </header>
     <details class="photo">
-      <summary><img src="${scan.thumb}" alt="" /><span>${formatDate(scan.createdAt)} · 원본 사진 보기</span></summary>
-      <img src="${scan.image}" alt="촬영한 사진" class="full" />
+      <summary><img src="${scan.thumb}" alt="" /><span>${formatDate(scan.createdAt)} · 사진 보기</span></summary>
+      <img src="${scan.thumb}" alt="촬영한 사진 (썸네일)" class="full" />
     </details>
     <div id="body"></div>
     <div id="notes"></div>`;
@@ -49,7 +49,7 @@ export async function renderScan(root: HTMLElement, id: string): Promise<void> {
   const body = root.querySelector<HTMLElement>("#body")!;
   if (scan.status === "pending") {
     if (!isInflight(scan.id)) {
-      body.innerHTML = errorBlock("해석이 중단됐어요 (앱이 닫혔거나 네트워크가 끊겼을 수 있어요)");
+      body.innerHTML = errorBlock("해석이 중단됐어요 (앱이 닫혔거나 네트워크가 끊겼을 수 있어요)", canRetry(scan.id));
       bindRetry(body, scan);
       return;
     }
@@ -65,7 +65,7 @@ export async function renderScan(root: HTMLElement, id: string): Promise<void> {
   }
 
   if (scan.status === "error") {
-    body.innerHTML = errorBlock(scan.error ?? "오류가 발생했어요");
+    body.innerHTML = errorBlock(scan.error ?? "오류가 발생했어요", canRetry(scan.id));
     bindRetry(body, scan);
     renderNotes(root, scan);
     return;
@@ -81,20 +81,21 @@ export async function renderScan(root: HTMLElement, id: string): Promise<void> {
         <h3>⚠️ 결과를 카드로 정리하지 못했어요</h3>
         <p class="muted">모델의 원문 응답을 그대로 보여드려요.</p>
         <pre class="raw">${esc(res.raw)}</pre>
-        <button class="btn" data-retry>다시 해석하기</button>
+        <a class="btn" href="#/">다시 촬영하기</a>
       </section>`;
     bindRetry(body, scan);
   }
   renderNotes(root, scan);
 }
 
-function errorBlock(message: string): string {
+function errorBlock(message: string, retryable: boolean): string {
   const needsSettings = /토큰|설정/.test(message);
   return `<section class="card warn-card">
     <h3>😵 해석하지 못했어요</h3>
     <p>${esc(message)}</p>
+    ${retryable ? "" : `<p class="muted small">원본 사진은 저장하지 않아서 다시 촬영해야 해요.</p>`}
     <div class="row">
-      <button class="btn" data-retry>다시 시도</button>
+      ${retryable ? `<button class="btn" data-retry>다시 시도</button>` : `<a class="btn" href="#/">다시 촬영하기</a>`}
       ${needsSettings ? `<a class="btn secondary" href="#/settings">설정 열기</a>` : ""}
     </div>
   </section>`;

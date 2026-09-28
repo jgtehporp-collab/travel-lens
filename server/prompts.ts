@@ -1,4 +1,4 @@
-import type { Mode, UserPrefs } from "../../shared/types";
+import type { Mode, UserPrefs } from "../shared/types.js";
 
 const SYSTEM_TEMPLATE = `너는 해외여행 중인 한국인을 돕는 음식·주류 전문 해설가다.
 사진 속 텍스트를 읽고 한국어로 해석하되, 단순 번역이 아니라

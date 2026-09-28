@@ -126,3 +126,12 @@ export interface SakeResult {
   match_with_user: string;
   confidence: Confidence;
 }
+
+export interface RateResponse {
+  currency: string;
+  /** 1 단위당 원화 */
+  rate: number;
+  /** 기준일 YYYYMMDD */
+  date: string;
+  source: string;
+}

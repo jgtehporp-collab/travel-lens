@@ -1,9 +1,10 @@
 import { IMAGE_JPEG_QUALITY, IMAGE_MAX_EDGE } from "../shared/config";
 
+const THUMB_MAX_EDGE = 480;
+
 export interface ProcessedImage {
-  dataUrl: string; // 업로드/저장용 JPEG
-  base64: string; // data: 접두어 제거
-  thumb: string; // 기록 목록용 작은 썸네일
+  base64: string; // 업로드용 JPEG (data: 접두어 제거). 저장하지 않음
+  thumb: string; // 기록에 저장하는 썸네일
 }
 
 /**
@@ -52,7 +53,8 @@ function draw(src: ImageBitmap | HTMLImageElement, maxEdge: number, quality: num
 export async function processImage(file: Blob): Promise<ProcessedImage> {
   const src = await decode(file);
   const dataUrl = draw(src, IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY);
-  const thumb = draw(src, 240, 0.7);
+  // 원본을 저장하지 않으므로 결과 화면에서 알아볼 수 있을 정도의 크기로 (보통 30~60KB)
+  const thumb = draw(src, THUMB_MAX_EDGE, 0.72);
   if ("close" in src) src.close();
-  return { dataUrl, base64: dataUrl.slice(dataUrl.indexOf(",") + 1), thumb };
+  return { base64: dataUrl.slice(dataUrl.indexOf(",") + 1), thumb };
 }

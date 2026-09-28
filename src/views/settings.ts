@@ -1,12 +1,12 @@
 import { ALLOWED_MODELS } from "../../shared/config";
 import { fetchKrwRate } from "../api";
 import { listScans } from "../db";
-import { type AppSettings, CURRENCIES, DEFAULT_SETTINGS, apiBase, loadSettings, saveSettings } from "../settings";
-import { esc, listFromText, toast } from "../util";
+import { type AppSettings, CURRENCIES, DEFAULT_SETTINGS, loadSettings, saveSettings } from "../settings";
+import { esc, formatYmd, listFromText, toast } from "../util";
 
 function field(label: string, name: string, value: string, opts: { type?: string; placeholder?: string; hint?: string } = {}): string {
   return `<label class="field"><span>${esc(label)}</span>
-    <input name="${name}" type="${opts.type ?? "text"}" value="${esc(value)}" placeholder="${esc(opts.placeholder ?? "")}" autocomplete="off" />
+    <input name="${name}" type="${opts.type ?? "text"}" ${opts.type === "number" ? 'step="any" inputmode="decimal"' : ""} value="${esc(value)}" placeholder="${esc(opts.placeholder ?? "")}" autocomplete="off" />
     ${opts.hint ? `<small>${esc(opts.hint)}</small>` : ""}</label>`;
 }
 
@@ -22,15 +22,10 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
 
   root.innerHTML = `
     <header class="top"><h1>설정</h1></header>
-    <form id="form" class="settings">
+    <form id="form" class="settings" novalidate>
       <section class="card">
         <h3>🔑 연결</h3>
-        ${field("접근 토큰", "token", s.token, { type: "password", placeholder: "Worker의 APP_TOKEN 값", hint: "이 기기에만 저장돼요" })}
-        ${field("Worker 주소 (선택)", "api_base", s.api_base, {
-          type: "url",
-          placeholder: apiBase({ ...s, api_base: "" }) || "https://travel-lens-api.<계정>.workers.dev",
-          hint: "비워두면 빌드 시 지정한 주소 또는 같은 도메인의 /api 사용",
-        })}
+        ${field("접근 토큰", "token", s.token, { type: "password", placeholder: "Vercel에 등록한 APP_TOKEN 값", hint: "이 기기에만 저장돼요" })}
         <label class="field"><span>모델</span>
           <select name="model">${ALLOWED_MODELS.map((m) => `<option value="${m.id}" ${m.id === s.model ? "selected" : ""}>${esc(m.label)}</option>`).join("")}</select>
         </label>
@@ -73,6 +68,7 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
           ${field("1 단위당 원화", "krw_rate", String(s.krw_rate ?? ""), { type: "number" })}
           <button type="button" class="btn secondary" id="rate">환율 불러오기</button>
         </div>
+        <p class="muted small" id="rate-info">${esc(rateInfo(s))}</p>
       </section>
 
       <div class="sticky-save"><button type="submit" class="btn">저장</button></div>
@@ -85,12 +81,19 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     </form>`;
 
   const form = root.querySelector<HTMLFormElement>("#form")!;
+  const rateInfoEl = root.querySelector<HTMLElement>("#rate-info")!;
+  // 환율 입력값의 출처 (직접 수정하면 '직접 입력'으로 바뀜)
+  const rateMeta = { date: s.krw_rate_date, source: s.krw_rate_source, checkedAt: s.krw_rate_checked_at };
+  const setManualRate = () => {
+    rateMeta.date = null;
+    rateMeta.source = null;
+    rateInfoEl.textContent = rateInfo({ ...s, ...collect() });
+  };
   const val = (name: string) => (form.elements.namedItem(name) as HTMLInputElement).value.trim();
 
   const collect = (): AppSettings => ({
     ...loadSettings(),
     token: val("token"),
-    api_base: val("api_base"),
     model: val("model"),
     allergies: listFromText(val("allergies")),
     dislikes: listFromText(val("dislikes")),
@@ -110,6 +113,9 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     convert_to_krw: (form.elements.namedItem("convert_to_krw") as HTMLInputElement).checked,
     currency: val("currency"),
     krw_rate: Number(val("krw_rate")) || null,
+    krw_rate_date: rateMeta.date,
+    krw_rate_source: rateMeta.source,
+    krw_rate_checked_at: rateMeta.checkedAt,
   });
 
   form.addEventListener("submit", (e) => {
@@ -118,37 +124,61 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     toast("저장했어요 ✅");
   });
 
+  const loadRate = async (quiet: boolean) => {
+    const currency = val("currency");
+    if (CURRENCIES.find((c) => c.code === currency)?.eximSupported === false) {
+      if (!quiet) toast("수출입은행이 이 통화 환율을 제공하지 않아요. 직접 입력해 주세요");
+      return;
+    }
+    try {
+      const r = await fetchKrwRate({ ...s, token: val("token") }, currency);
+      (form.elements.namedItem("krw_rate") as HTMLInputElement).value = String(r.rate);
+      Object.assign(rateMeta, { date: r.date, source: r.source, checkedAt: Date.now() });
+      rateInfoEl.textContent = rateInfo({ ...s, ...collect() });
+      if (!quiet) toast(`1 ${currency} ≈ ${r.rate}원 (저장을 눌러 적용)`);
+    } catch (e) {
+      if (!quiet) toast(e instanceof Error ? e.message : "환율을 불러오지 못했어요");
+    }
+  };
+
   (form.elements.namedItem("currency") as HTMLSelectElement).addEventListener("change", () => {
     const c = CURRENCIES.find((x) => x.code === val("currency"));
     if (c) (form.elements.namedItem("krw_rate") as HTMLInputElement).value = String(c.rate);
+    setManualRate();
+    rateMeta.checkedAt = 0;
+    void loadRate(true);
   });
-
-  root.querySelector("#rate")!.addEventListener("click", async () => {
-    try {
-      const rate = await fetchKrwRate(val("currency"));
-      (form.elements.namedItem("krw_rate") as HTMLInputElement).value = String(rate);
-      toast(`1 ${val("currency")} ≈ ${rate}원 (저장을 눌러 적용)`);
-    } catch {
-      toast("환율을 불러오지 못했어요. 직접 입력해 주세요");
-    }
-  });
+  (form.elements.namedItem("krw_rate") as HTMLInputElement).addEventListener("input", setManualRate);
+  root.querySelector("#rate")!.addEventListener("click", () => void loadRate(false));
 
   root.querySelector("#test")!.addEventListener("click", async () => {
     const cur = collect();
     try {
-      const res = await fetch(`${apiBase(cur)}/api/health`);
-      const data = (await res.json()) as { ok?: boolean; mock?: boolean };
-      toast(data.ok ? `연결 성공${data.mock ? " (MOCK 모드)" : ""} ✅` : "응답이 이상해요");
+      const res = await fetch("/api/health");
+      const data = (await res.json()) as { ok?: boolean; mock?: boolean; exchange_rate?: boolean };
+      if (!data.ok) return toast("응답이 이상해요");
+      // 토큰까지 맞는지 확인하려고 환율 API를 한 번 호출 (키가 없으면 501 → 토큰은 통과)
+      const check = await fetch(`/api/rate?currency=USD`, { headers: { "X-App-Token": cur.token } });
+      if (check.status === 401) return toast("서버는 연결됐지만 접근 토큰이 틀려요");
+      toast(`연결 성공${data.mock ? " (MOCK 모드)" : ""}${data.exchange_rate ? "" : " · 환율 자동 조회 꺼짐"} ✅`);
     } catch {
-      toast("Worker에 연결할 수 없어요");
+      toast("서버에 연결할 수 없어요");
     }
   });
 
   root.querySelector("#reset")!.addEventListener("click", () => {
     if (!confirm("알레르기·와인·사케·통화 설정을 기본값으로 되돌릴까요? (토큰은 유지)")) return;
     const cur = loadSettings();
-    saveSettings({ ...structuredClone(DEFAULT_SETTINGS), token: cur.token, api_base: cur.api_base, model: cur.model });
+    saveSettings({ ...structuredClone(DEFAULT_SETTINGS), token: cur.token, model: cur.model });
     void renderSettings(root);
     toast("기본값으로 되돌렸어요");
   });
+}
+
+function rateInfo(s: AppSettings): string {
+  if (CURRENCIES.find((c) => c.code === s.currency)?.eximSupported === false) {
+    return "수출입은행 미제공 통화 — 직접 입력한 값을 사용해요";
+  }
+  if (s.krw_rate_date) return `${formatYmd(s.krw_rate_date)} ${s.krw_rate_source ?? ""} 기준 · 앱 실행 시 12시간마다 자동 갱신`;
+  return "기본값/직접 입력 — '환율 불러오기'로 한국수출입은행 기준율을 받아올 수 있어요";
 }

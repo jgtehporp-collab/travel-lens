@@ -6,8 +6,8 @@ export interface Scan {
   requestedMode: RequestMode;
   /** 결과가 나온 뒤 확정된 모드 */
   mode: Mode | null;
-  image: string; // data URL (리사이즈된 JPEG)
-  thumb: string; // data URL
+  /** 기록용 썸네일 data URL. 원본 사진은 저장하지 않는다 (해석 중에만 메모리에 보관) */
+  thumb: string;
   status: "pending" | "done" | "error";
   result: AnalyzeResponse | null;
   error: string | null;
@@ -23,10 +23,23 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 function open(): Promise<IDBDatabase> {
   dbPromise ??= new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const store = req.result.createObjectStore(STORE, { keyPath: "id" });
-      store.createIndex("createdAt", "createdAt");
+    const req = indexedDB.open(DB_NAME, 2);
+    req.onupgradeneeded = (e) => {
+      if (e.oldVersion < 1) {
+        const store = req.result.createObjectStore(STORE, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt");
+      }
+      if (e.oldVersion >= 1 && e.oldVersion < 2) {
+        // v1은 원본 사진(image)도 저장했음 → 지워서 용량 확보
+        const cursorReq = req.transaction!.objectStore(STORE).openCursor();
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (!cursor) return;
+          const { image: _drop, ...rest } = cursor.value as Scan & { image?: string };
+          cursor.update(rest);
+          cursor.continue();
+        };
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
